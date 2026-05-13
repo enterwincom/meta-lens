@@ -7,9 +7,11 @@
     <style>
         :root {
             --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
             --success-color: #059669;
             --bg-color: #f8fafc;
             --text-main: #1e293b;
+            --error-color: #ef4444;
         }
 
         body { 
@@ -21,12 +23,13 @@
         .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
 
         header { text-align: center; margin-bottom: 20px; }
-        h1 { margin: 0; color: var(--primary-color); font-size: 1.5rem; }
+        h1 { margin: 0; color: var(--primary-color); font-size: 1.5rem; letter-spacing: -0.5px; }
         .subtitle { color: #64748b; font-size: 0.9rem; margin-top: 4px; }
 
         .privacy-note { 
-            text-align: center; font-size: 0.75rem; color: #94a3b8; 
-            background: #f1f5f9; padding: 8px; border-radius: 10px; margin-bottom: 20px;
+            text-align: center; font-size: 0.75rem; color: #64748b; 
+            background: #f1f5f9; padding: 10px; border-radius: 12px; margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
         }
 
         #upload-section { 
@@ -36,31 +39,44 @@
         }
 
         #upload-section.dragover { border-color: var(--primary-color); background-color: #eff6ff; transform: scale(1.01); }
-        #upload-section.minimized { padding: 20px; margin-bottom: 15px; }
+        #upload-section.minimized { padding: 15px; margin-bottom: 15px; border-style: solid; border-width: 1px; }
 
         .upload-icon { font-size: 2rem; margin-bottom: 10px; display: block; }
         .upload-text { font-weight: 600; color: #334155; }
         
+        /* 이미지 미리보기 및 회전 보정 */
+        #preview-container { display: none; margin-top: 15px; text-align: center; }
         #preview { 
-            display: none; width: 100%; max-height: 350px; 
-            object-fit: contain; margin: 15px 0; border-radius: 12px; 
+            width: 100%; max-height: 400px; 
+            object-fit: contain; border-radius: 12px; 
             background: #f1f5f9; border: 1px solid #e2e8f0;
+            image-orientation: from-image; /* 이미지 방향 메타데이터 반영 */
         }
 
-        #map-link { 
-            display: none; text-align: center; margin: 10px 0; padding: 14px; 
+        /* 구글 지도 버튼 스타일 */
+        #map-btn { 
+            display: none; width: 100%; margin-top: 12px; padding: 14px; 
             background-color: var(--success-color); color: white; text-decoration: none; 
-            border-radius: 12px; font-weight: bold; font-size: 0.95rem;
+            border-radius: 12px; font-weight: bold; font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+            transition: transform 0.2s, background-color 0.2s;
+            text-align: center;
         }
+        #map-btn:active { transform: scale(0.98); }
 
-        .table-wrapper { width: 100%; margin-top: 15px; }
-        table { width: 100%; border-collapse: collapse; display: none; font-size: 0.9rem; border-top: 2px solid #f1f5f9; }
-        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        .table-wrapper { width: 100%; margin-top: 25px; border-top: 2px solid #f1f5f9; padding-top: 10px; }
+        table { width: 100%; border-collapse: collapse; display: none; font-size: 0.9rem; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #f8fafc; }
         th { color: #64748b; width: 35%; font-weight: 500; }
         td { font-weight: 600; word-break: break-all; color: #334155; }
         .highlight { color: var(--primary-color) !important; }
 
-        .loading-spinner { display: none; margin: 10px auto; color: var(--primary-color); }
+        .loading-spinner { 
+            display: none; text-align: center; margin: 20px auto; 
+            color: var(--primary-color); font-weight: bold; 
+        }
+
+        .error-msg { color: var(--error-color); font-size: 0.85rem; margin-top: 10px; display: none; text-align: center; }
     </style>
 </head>
 <body>
@@ -68,23 +84,28 @@
 <div class="container">
     <header>
         <h1>Meta Lens</h1>
-        <p class="subtitle">Metadata Viewer</p>
+        <p class="subtitle">이미지 메타데이터 분석 도구</p>
     </header>
 
     <div class="privacy-note">
-        🔒 사진은 서버로 전송되지 않습니다.
+        <span>🔒</span> 보안 안내: 선택한 사진은 외부 서버로 전송되지 않으며 브라우저 내에서만 안전하게 처리됩니다.
     </div>
     
     <div id="upload-section">
         <span class="upload-icon">📸</span>
-        <div class="upload-text">사진을 선택하거나 드래그하세요</div>
-        <div class="upload-subtext" style="font-size: 0.8rem; color: #94a3b8; margin-top:5px;">JPG, PNG, HEIC 지원</div>
+        <div class="upload-text">사진을 선택하거나 이곳에 놓으세요</div>
+        <div class="upload-subtext" style="font-size: 0.8rem; color: #94a3b8; margin-top:5px;">JPG, PNG, HEIC (최대 30MB)</div>
         <input type="file" id="file-input" accept="image/jpeg, image/png, image/heic, image/heif" style="display:none">
     </div>
 
-    <div id="loading" class="loading-spinner">분석 중...</div>
-    <img id="preview">
-    <a id="map-link" target="_blank">📍 Google 지도로 촬영지 보기</a>
+    <div id="loading" class="loading-spinner">✨ 메타데이터 분석 중...</div>
+    <div id="error-box" class="error-msg"></div>
+
+    <div id="preview-container">
+        <img id="preview">
+        <!-- 이미지 바로 아래 위치 확인 버튼 -->
+        <a id="map-btn" target="_blank">📍 Google 지도로 촬영지 보기</a>
+    </div>
 
     <div class="table-wrapper">
         <table id="metadata-table">
@@ -100,11 +121,15 @@
 <script>
     const section = document.getElementById('upload-section');
     const input = document.getElementById('file-input');
+    const previewContainer = document.getElementById('preview-container');
     const preview = document.getElementById('preview');
-    const mapLink = document.getElementById('map-link');
+    const mapBtn = document.getElementById('map-btn');
     const tbody = document.getElementById('metadata-body');
     const table = document.getElementById('metadata-table');
     const loading = document.getElementById('loading');
+    const errorBox = document.getElementById('error-box');
+
+    const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB 제한
 
     section.onclick = () => input.click();
     input.onchange = (e) => handleFiles(e.target.files);
@@ -121,17 +146,20 @@
         let file = files[0];
         if (!file) return;
 
+        // 1. 파일 크기 체크 (개선 사항 반영)
+        if (file.size > MAX_FILE_SIZE) {
+            showError("파일이 너무 큽니다. 30MB 이하의 이미지를 선택해 주세요.");
+            return;
+        }
+
         // UI 초기화
+        resetUI();
         loading.style.display = 'block';
-        tbody.innerHTML = '';
-        table.style.display = 'none';
-        mapLink.style.display = 'none';
-        preview.style.display = 'none';
 
         try {
             // HEIC 변환 처리
             if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith('.heic')) {
-                const blob = await heic2any({ blob: file, toType: "image/jpeg" });
+                const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
                 file = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
             }
 
@@ -139,16 +167,18 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 preview.src = e.target.result;
-                preview.style.display = 'block';
+                previewContainer.style.display = 'block';
                 section.classList.add('minimized');
                 
-                // 이미지 로드 후 실제 크기 정보 확보 가능 시점
+                // 이미지 로드 후 메타데이터 처리
                 preview.onload = () => processMetadata(file);
             };
+            reader.onerror = () => showError("이미지를 읽는 중 오류가 발생했습니다.");
             reader.readAsDataURL(file);
 
         } catch (err) {
-            alert("파일을 처리하는 중 오류가 발생했습니다.");
+            console.error(err);
+            showError("파일 처리 중 오류가 발생했습니다. (HEIC 변환 실패 등)");
             loading.style.display = 'none';
         }
     }
@@ -161,13 +191,14 @@
             if (Object.keys(tags).length > 0) {
                 table.style.display = 'table';
                 
-                // 날짜 포맷팅
                 const formatExifDate = (dateStr) => {
                     if(!dateStr) return null;
-                    const [date, time] = dateStr.split(' ');
-                    return date.replace(/:/g, '-') + ' ' + time;
+                    const parts = dateStr.split(' ');
+                    if(parts.length < 2) return dateStr;
+                    return parts[0].replace(/:/g, '-') + ' ' + parts[1];
                 };
 
+                // 주요 정보 추출
                 const importantData = {
                     "기기 제조사": tags.Make,
                     "모델명": tags.Model,
@@ -176,7 +207,8 @@
                     "노출시간": tags.ExposureTime ? (tags.ExposureTime < 1 ? `1/${Math.round(1/tags.ExposureTime)}초` : `${tags.ExposureTime}초`) : null,
                     "조리개 값": tags.FNumber ? `f/${tags.FNumber}` : null,
                     "ISO 감도": tags.ISOSpeedRatings,
-                    "초점 거리": tags.FocalLength ? `${tags.FocalLength}mm` : null
+                    "초점 거리": tags.FocalLength ? `${tags.FocalLength}mm` : null,
+                    "소프트웨어": tags.Software
                 };
 
                 for (let key in importantData) {
@@ -186,16 +218,22 @@
                 // GPS 처리
                 const lat = EXIF.getTag(this, "GPSLatitude");
                 const lon = EXIF.getTag(this, "GPSLongitude");
+                
                 if (lat && lon) {
                     const decLat = convertToDecimal(lat, EXIF.getTag(this, "GPSLatitudeRef"));
                     const decLon = convertToDecimal(lon, EXIF.getTag(this, "GPSLongitudeRef"));
-                    mapLink.href = `https://www.google.com/maps?q=${decLat},${decLon}`;
-                    mapLink.style.display = 'block';
+                    
+                    // 지도 버튼 활성화
+                    mapBtn.href = `https://www.google.com/maps?q=${decLat},${decLon}`;
+                    mapBtn.style.display = 'block';
+                    
                     addRow("위도", decLat.toFixed(6));
                     addRow("경도", decLon.toFixed(6));
+                } else {
+                    addRow("위치 정보", "데이터 없음 (GPS 비활성화)");
                 }
             } else {
-                alert("메타데이터를 찾을 수 없습니다. 원본 사진이 아니거나 정보가 삭제된 상태일 수 있습니다.");
+                showError("메타데이터를 찾을 수 없습니다. 정보가 삭제된 사진일 수 있습니다.");
             }
         });
     }
@@ -211,6 +249,20 @@
                   (pos[1].numerator / pos[1].denominator) / 60 + 
                   (pos[2].numerator / pos[2].denominator) / 3600;
         return (ref === "S" || ref === "W") ? val * -1 : val;
+    }
+
+    function resetUI() {
+        tbody.innerHTML = '';
+        table.style.display = 'none';
+        mapBtn.style.display = 'none';
+        previewContainer.style.display = 'none';
+        errorBox.style.display = 'none';
+    }
+
+    function showError(msg) {
+        errorBox.innerText = msg;
+        errorBox.style.display = 'block';
+        loading.style.display = 'none';
     }
 </script>
 </body>
