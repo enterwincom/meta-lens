@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Photo Metadata Viewer</title>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --bg-color: #f8fafc;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; padding: 20px; background-color: var(--bg-color); 
+        }
+
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+
+        /* 업로드 영역 스타일 개선 */
+        #upload-section { 
+            position: relative;
+            border: 2px dashed #cbd5e0; 
+            padding: 40px 20px; 
+            text-align: center; 
+            border-radius: 16px;
+            background-color: #ffffff;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+
+        /* 드래그 중일 때의 스타일 */
+        #upload-section.dragover { 
+            border-color: var(--primary-color); 
+            background-color: #eff6ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon { font-size: 3rem; margin-bottom: 10px; display: block; }
+        .upload-text { font-weight: 600; color: #334155; margin-bottom: 5px; }
+        .upload-subtext { font-size: 0.85rem; color: #94a3b8; }
+
+        #preview { 
+            display: none; width: 100%; max-height: 350px; 
+            object-fit: contain; margin: 20px 0; border-radius: 12px; 
+        }
+
+        #map-link { 
+            display: none; text-align: center; margin: 15px 0; padding: 12px; 
+            background-color: #059669; color: white; text-decoration: none; 
+            border-radius: 12px; font-weight: bold; font-size: 0.9rem;
+        }
+
+        .table-wrapper { width: 100%; overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; display: none; font-size: 0.85rem; border-top: 2px solid #f1f5f9; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        th { color: #64748b; width: 40%; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align: center; margin-bottom: 25px;">Meta Lens</h2>
+    
+    <!-- 업로드 영역 -->
+    <div id="upload-section">
+        <span class="upload-icon">📂</span>
+        <div class="upload-text">사진을 선택하거나 드래그하세요</div>
+        <div class="upload-subtext">JPG, PNG 파일 (GPS 정보 포함 권장)</div>
+        <input type="file" id="file-input" accept="image/*" style="display:none">
+    </div>
+
+    <img id="preview">
+    <a id="map-link" target="_blank">📍 지도에서 촬영지 확인하기</a>
+
+    <div class="table-wrapper">
+        <table id="metadata-table">
+            <tbody id="metadata-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script>
+    const section = document.getElementById('upload-section');
+    const input = document.getElementById('file-input');
+    const preview = document.getElementById('preview');
+    const mapLink = document.getElementById('map-link');
+    const tbody = document.getElementById('metadata-body');
+    const table = document.getElementById('metadata-table');
+
+    // 클릭으로 열기
+    section.onclick = () => input.click();
+
+    // 파일 선택 이벤트
+    input.onchange = (e) => handleFiles(e.target.files);
+
+    // 드래그 앤 드롭 이벤트 핵심
+    section.ondragover = (e) => {
+        e.preventDefault();
+        section.classList.add('dragover');
+    };
+
+    section.ondragleave = () => {
+        section.classList.remove('dragover');
+    };
+
+    section.ondrop = (e) => {
+        e.preventDefault();
+        section.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    };
+
+    function handleFiles(files) {
+        const file = files[0];
+        if (!file) return;
+
+        // 미리보기
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+
+        // EXIF 데이터 추출
+        EXIF.getData(file, function() {
+            const allTags = EXIF.getAllTags(this);
+            tbody.innerHTML = '';
+            mapLink.style.display = 'none';
+
+            if (Object.keys(allTags).length > 0) {
+                table.style.display = 'table';
+                for (let tag in allTags) {
+                    if (typeof allTags[tag] !== 'object' && typeof allTags[tag] !== 'function') {
+                        tbody.innerHTML += `<tr><th>${tag}</th><td>${allTags[tag]}</td></tr>`;
+                    }
+                }
+
+                // GPS 좌표 처리
+                const lat = EXIF.getTag(this, "GPSLatitude");
+                const lon = EXIF.getTag(this, "GPSLongitude");
+                if (lat && lon) {
+                    const decLat = convertToDecimal(lat, EXIF.getTag(this, "GPSLatitudeRef"));
+                    const decLon = convertToDecimal(lon, EXIF.getTag(this, "GPSLongitudeRef"));
+                    mapLink.href = `https://www.google.com/maps?q=${decLat},${decLon}`;
+                    mapLink.style.display = 'block';
+                }
+            }
+        });
+    }
+
+    function convertToDecimal(pos, ref) {
+        let val = pos[0] + (pos[1] / 60) + (pos[2] / 3600);
+        return (ref === "S" || ref === "W") ? val * -1 : val;
+    }
+</script>
+
+</body>
+</html>
