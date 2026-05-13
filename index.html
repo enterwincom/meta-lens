@@ -15,11 +15,19 @@
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             margin: 0; padding: 20px; background-color: var(--bg-color); color: var(--text-main);
+            line-height: 1.5;
         }
 
         .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
 
-        h2 { text-align: center; margin-bottom: 25px; letter-spacing: -0.5px; }
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { margin: 0; color: var(--primary-color); font-size: 1.5rem; }
+        .subtitle { color: #64748b; font-size: 0.9rem; margin-top: 4px; }
+
+        .privacy-note { 
+            text-align: center; font-size: 0.75rem; color: #94a3b8; 
+            background: #f1f5f9; padding: 8px; border-radius: 10px; margin-bottom: 20px;
+        }
 
         #upload-section { 
             position: relative; border: 2px dashed #cbd5e0; padding: 40px 20px; 
@@ -28,57 +36,55 @@
         }
 
         #upload-section.dragover { border-color: var(--primary-color); background-color: #eff6ff; transform: scale(1.01); }
-        #upload-section.minimized { padding: 15px; margin-bottom: 15px; }
+        #upload-section.minimized { padding: 20px; margin-bottom: 15px; }
 
-        .upload-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+        .upload-icon { font-size: 2rem; margin-bottom: 10px; display: block; }
         .upload-text { font-weight: 600; color: #334155; }
-        .upload-subtext { font-size: 0.85rem; color: #94a3b8; margin-top: 5px; }
-
+        
         #preview { 
-            display: none; width: 100%; max-height: 400px; 
-            object-fit: contain; margin: 20px 0; border-radius: 12px; background: #eee;
+            display: none; width: 100%; max-height: 350px; 
+            object-fit: contain; margin: 15px 0; border-radius: 12px; 
+            background: #f1f5f9; border: 1px solid #e2e8f0;
         }
 
         #map-link { 
-            display: none; text-align: center; margin: 15px 0; padding: 14px; 
+            display: none; text-align: center; margin: 10px 0; padding: 14px; 
             background-color: var(--success-color); color: white; text-decoration: none; 
             border-radius: 12px; font-weight: bold; font-size: 0.95rem;
-            transition: opacity 0.2s;
         }
-        #map-link:hover { opacity: 0.9; }
 
-        .table-wrapper { width: 100%; margin-top: 20px; border-top: 2px solid #f1f5f9; }
-        table { width: 100%; border-collapse: collapse; display: none; font-size: 0.9rem; }
-        th, td { padding: 14px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-        th { color: #64748b; width: 35%; font-weight: 500; background-color: #fbfcfe; }
-        td { font-weight: 500; word-break: break-all; }
-        
-        /* 주요 정보 강조 */
-        .highlight { color: var(--primary-color); font-weight: 700; }
+        .table-wrapper { width: 100%; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; display: none; font-size: 0.9rem; border-top: 2px solid #f1f5f9; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        th { color: #64748b; width: 35%; font-weight: 500; }
+        td { font-weight: 600; word-break: break-all; color: #334155; }
+        .highlight { color: var(--primary-color) !important; }
+
+        .loading-spinner { display: none; margin: 10px auto; color: var(--primary-color); }
     </style>
 </head>
 <body>
     
 <div class="container">
     <header>
-        <!-- 아이콘 삭제됨 -->
         <h1>Meta Lens</h1>
-        <p class="subtitle">Metacata Viewer</p>
+        <p class="subtitle">Metadata Viewer</p>
     </header>
 
     <div class="privacy-note">
-        🔒 모든 작업은 브라우저 내에서 처리되어 안전합니다.
+        🔒 사진은 서버로 전송되지 않고 기기 내에서만 처리됩니다.
     </div>
     
     <div id="upload-section">
         <span class="upload-icon">📸</span>
         <div class="upload-text">사진을 선택하거나 드래그하세요</div>
-        <div class="upload-subtext">정보 확인을 위해 원본 파일을 권장합니다</div>
-        <input type="file" id="file-input" accept="image/jpeg, image/png" style="display:none">
+        <div class="upload-subtext" style="font-size: 0.8rem; color: #94a3b8; margin-top:5px;">JPG, PNG, HEIC 지원</div>
+        <input type="file" id="file-input" accept="image/jpeg, image/png, image/heic, image/heif" style="display:none">
     </div>
 
+    <div id="loading" class="loading-spinner">분석 중...</div>
     <img id="preview">
-    <a id="map-link" target="_blank">📍 Google 지도로 촬영지 열기</a>
+    <a id="map-link" target="_blank">📍 Google 지도로 촬영지 보기</a>
 
     <div class="table-wrapper">
         <table id="metadata-table">
@@ -87,7 +93,10 @@
     </div>
 </div>
 
+<!-- 라이브러리 추가 -->
 <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
 <script>
     const section = document.getElementById('upload-section');
     const input = document.getElementById('file-input');
@@ -95,6 +104,7 @@
     const mapLink = document.getElementById('map-link');
     const tbody = document.getElementById('metadata-body');
     const table = document.getElementById('metadata-table');
+    const loading = document.getElementById('loading');
 
     section.onclick = () => input.click();
     input.onchange = (e) => handleFiles(e.target.files);
@@ -107,48 +117,70 @@
         handleFiles(e.dataTransfer.files);
     };
 
-    function handleFiles(files) {
-        const file = files[0];
+    async function handleFiles(files) {
+        let file = files[0];
         if (!file) return;
 
         // UI 초기화
+        loading.style.display = 'block';
         tbody.innerHTML = '';
         table.style.display = 'none';
         mapLink.style.display = 'none';
-        section.classList.add('minimized');
+        preview.style.display = 'none';
 
-        // 미리보기
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            preview.src = e.target.result;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+        try {
+            // HEIC 변환 처리
+            if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith('.heic')) {
+                const blob = await heic2any({ blob: file, toType: "image/jpeg" });
+                file = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
+            }
 
-        // EXIF 데이터 처리
+            // 미리보기 로드
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                section.classList.add('minimized');
+                
+                // 이미지 로드 후 실제 크기 정보 확보 가능 시점
+                preview.onload = () => processMetadata(file);
+            };
+            reader.readAsDataURL(file);
+
+        } catch (err) {
+            alert("파일을 처리하는 중 오류가 발생했습니다.");
+            loading.style.display = 'none';
+        }
+    }
+
+    function processMetadata(file) {
         EXIF.getData(file, function() {
             const tags = EXIF.getAllTags(this);
+            loading.style.display = 'none';
             
             if (Object.keys(tags).length > 0) {
                 table.style.display = 'table';
                 
-                // 중요 정보 우선 정의
-                const importantData = {
-                    "제조사": tags.Make,
-                    "모델": tags.Model,
-                    "촬영일시": tags.DateTimeOriginal || tags.DateTime,
-                    "해상도": `${tags.PixelXDimension || tags.ExifImageWidth} x ${tags.PixelYDimension || tags.ExifImageHeight}`,
-                    "노출시간": tags.ExposureTime ? `1/${Math.round(1/tags.ExposureTime)}초` : null,
-                    "조리개": tags.FNumber ? `f/${tags.FNumber}` : null,
-                    "ISO": tags.ISOSpeedRatings,
-                    "초점거리": tags.FocalLength ? `${tags.FocalLength}mm` : null
+                // 날짜 포맷팅
+                const formatExifDate = (dateStr) => {
+                    if(!dateStr) return null;
+                    const [date, time] = dateStr.split(' ');
+                    return date.replace(/:/g, '-') + ' ' + time;
                 };
 
-                // 주요 정보 출력
+                const importantData = {
+                    "기기 제조사": tags.Make,
+                    "모델명": tags.Model,
+                    "촬영 일시": formatExifDate(tags.DateTimeOriginal || tags.DateTime),
+                    "해상도": `${tags.PixelXDimension || preview.naturalWidth} x ${tags.PixelYDimension || preview.naturalHeight}`,
+                    "노출시간": tags.ExposureTime ? (tags.ExposureTime < 1 ? `1/${Math.round(1/tags.ExposureTime)}초` : `${tags.ExposureTime}초`) : null,
+                    "조리개 값": tags.FNumber ? `f/${tags.FNumber}` : null,
+                    "ISO 감도": tags.ISOSpeedRatings,
+                    "초점 거리": tags.FocalLength ? `${tags.FocalLength}mm` : null
+                };
+
                 for (let key in importantData) {
-                    if (importantData[key]) {
-                        addRow(key, importantData[key], true);
-                    }
+                    if (importantData[key]) addRow(key, importantData[key], true);
                 }
 
                 // GPS 처리
@@ -162,18 +194,16 @@
                     addRow("위도", decLat.toFixed(6));
                     addRow("경도", decLon.toFixed(6));
                 }
-
-                // 나머지 기타 정보 출력 (선택 사항 - 너무 많으면 생략 가능)
-                // for (let tag in tags) { ... }
             } else {
-                alert("메타데이터를 찾을 수 없습니다. (카카오톡 등으로 전송된 사진은 정보가 삭제될 수 있습니다)");
+                alert("메타데이터를 찾을 수 없습니다. 원본 사진이 아니거나 정보가 삭제된 상태일 수 있습니다.");
             }
         });
     }
 
     function addRow(label, value, isHighlight = false) {
-        const row = `<tr><th>${label}</th><td class="${isHighlight ? 'highlight' : ''}">${value}</td></tr>`;
-        tbody.innerHTML += row;
+        const row = document.createElement('tr');
+        row.innerHTML = `<th>${label}</th><td class="${isHighlight ? 'highlight' : ''}">${value}</td>`;
+        tbody.appendChild(row);
     }
 
     function convertToDecimal(pos, ref) {
