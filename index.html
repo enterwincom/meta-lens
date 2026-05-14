@@ -44,20 +44,26 @@
         .upload-icon { font-size: 2rem; margin-bottom: 10px; display: block; }
         .upload-text { font-weight: 600; color: #334155; }
         
-        /* 이미지 미리보기 및 회전 보정 */
         #preview-container { display: none; margin-top: 15px; text-align: center; }
         #preview { 
             width: 100%; max-height: 400px; 
             object-fit: contain; border-radius: 12px; 
             background: #f1f5f9; border: 1px solid #e2e8f0;
-            image-orientation: from-image; /* 이미지 방향 메타데이터 반영 */
         }
 
-        /* 구글 지도 버튼 스타일 */
+        /* 구글 지도 버튼 스타일 수정 */
         #map-btn { 
-            display: none; width: 100%; margin-top: 12px; padding: 14px; 
-            background-color: var(--success-color); color: white; text-decoration: none; 
-            border-radius: 12px; font-weight: bold; font-size: 1rem;
+            display: none; 
+            width: fit-content;      /* 텍스트 길이에 맞춰 조절 */
+            min-width: 220px;        /* 너무 짧아지지 않게 최소 너비 설정 */
+            margin: 15px auto 0 auto; /* 상단 여백 15px, 좌우 auto로 중앙 정렬 */
+            padding: 12px 24px;      /* 좌우 여백을 넓혀 여유 부여 */
+            background-color: var(--success-color); 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 50px;     /* 더 세련된 캡슐형 디자인 */
+            font-weight: bold; 
+            font-size: 0.9rem;
             box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
             transition: transform 0.2s, background-color 0.2s;
             text-align: center;
@@ -88,7 +94,7 @@
     </header>
 
     <div class="privacy-note">
-        <span>🔒</span> 보안 안내: 선택한 사진은 외부 서버로 전송되지 않으며 브라우저 내에서만 안전하게 처리됩니다.
+        <span>🔒</span> 보안 안내: 사진은 서버로 전송되지 않으며 브라우저 내에서 처리됩니다.
     </div>
     
     <div id="upload-section">
@@ -103,7 +109,7 @@
 
     <div id="preview-container">
         <img id="preview">
-        <!-- 이미지 바로 아래 위치 확인 버튼 -->
+        <!-- 버튼 위치 및 스타일 개선 -->
         <a id="map-btn" target="_blank">📍 Google 지도로 촬영지 보기</a>
     </div>
 
@@ -114,7 +120,6 @@
     </div>
 </div>
 
-<!-- 라이브러리 추가 -->
 <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
@@ -129,7 +134,7 @@
     const loading = document.getElementById('loading');
     const errorBox = document.getElementById('error-box');
 
-    const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB 제한
+    const MAX_FILE_SIZE = 30 * 1024 * 1024;
 
     section.onclick = () => input.click();
     input.onchange = (e) => handleFiles(e.target.files);
@@ -146,39 +151,31 @@
         let file = files[0];
         if (!file) return;
 
-        // 1. 파일 크기 체크 (개선 사항 반영)
         if (file.size > MAX_FILE_SIZE) {
             showError("파일이 너무 큽니다. 30MB 이하의 이미지를 선택해 주세요.");
             return;
         }
 
-        // UI 초기화
         resetUI();
         loading.style.display = 'block';
 
         try {
-            // HEIC 변환 처리
             if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith('.heic')) {
                 const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
                 file = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
             }
 
-            // 미리보기 로드
             const reader = new FileReader();
             reader.onload = (e) => {
                 preview.src = e.target.result;
                 previewContainer.style.display = 'block';
                 section.classList.add('minimized');
-                
-                // 이미지 로드 후 메타데이터 처리
                 preview.onload = () => processMetadata(file);
             };
-            reader.onerror = () => showError("이미지를 읽는 중 오류가 발생했습니다.");
             reader.readAsDataURL(file);
 
         } catch (err) {
-            console.error(err);
-            showError("파일 처리 중 오류가 발생했습니다. (HEIC 변환 실패 등)");
+            showError("파일 처리 중 오류가 발생했습니다.");
             loading.style.display = 'none';
         }
     }
@@ -198,7 +195,6 @@
                     return parts[0].replace(/:/g, '-') + ' ' + parts[1];
                 };
 
-                // 주요 정보 추출
                 const importantData = {
                     "기기 제조사": tags.Make,
                     "모델명": tags.Model,
@@ -207,15 +203,13 @@
                     "노출시간": tags.ExposureTime ? (tags.ExposureTime < 1 ? `1/${Math.round(1/tags.ExposureTime)}초` : `${tags.ExposureTime}초`) : null,
                     "조리개 값": tags.FNumber ? `f/${tags.FNumber}` : null,
                     "ISO 감도": tags.ISOSpeedRatings,
-                    "초점 거리": tags.FocalLength ? `${tags.FocalLength}mm` : null,
-                    "소프트웨어": tags.Software
+                    "초점 거리": tags.FocalLength ? `${tags.FocalLength}mm` : null
                 };
 
                 for (let key in importantData) {
                     if (importantData[key]) addRow(key, importantData[key], true);
                 }
 
-                // GPS 처리
                 const lat = EXIF.getTag(this, "GPSLatitude");
                 const lon = EXIF.getTag(this, "GPSLongitude");
                 
@@ -223,17 +217,16 @@
                     const decLat = convertToDecimal(lat, EXIF.getTag(this, "GPSLatitudeRef"));
                     const decLon = convertToDecimal(lon, EXIF.getTag(this, "GPSLongitudeRef"));
                     
-                    // 지도 버튼 활성화
                     mapBtn.href = `https://www.google.com/maps?q=${decLat},${decLon}`;
-                    mapBtn.style.display = 'block';
+                    mapBtn.style.display = 'inline-block'; // 중앙 정렬을 위해 inline-block 사용
                     
                     addRow("위도", decLat.toFixed(6));
                     addRow("경도", decLon.toFixed(6));
                 } else {
-                    addRow("위치 정보", "데이터 없음 (GPS 비활성화)");
+                    addRow("위치 정보", "데이터 없음");
                 }
             } else {
-                showError("메타데이터를 찾을 수 없습니다. 정보가 삭제된 사진일 수 있습니다.");
+                showError("메타데이터를 찾을 수 없습니다.");
             }
         });
     }
